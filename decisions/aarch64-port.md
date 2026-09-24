@@ -12,7 +12,7 @@ The port runs in three phases on **QEMU virt** with **HVF** acceleration (Apple 
 
 Bring-up to a UART prompt. Set up the GICv2 timer for scheduling.
 
-**Gotcha:** the timer uses INTID 27 (non-secure physical timer). The GICC base address on QEMU virt is not at the address some tutorials assume; read it from the device tree.
+**Gotcha:** the timer is the virtual timer, PPI INTID 27. (The non-secure physical timer is INTID 30.) The GICC base address on QEMU virt is not at the address some tutorials assume; read it from the device tree.
 
 ### Phase 2 — Paging, context switch, IPC
 
