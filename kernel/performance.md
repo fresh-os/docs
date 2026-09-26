@@ -6,7 +6,7 @@
 |-------------------|--------|------------|
 | Frame time        | As low and stable as possible | Instrumented on `aarch64` dashboard |
 | Input-to-photon   | <5 ms  | Instrumented on `aarch64` dashboard |
-| IPC latency       | <1 us  | Instrumented via ping/pong probe on `aarch64` |
+| IPC latency       | <1 us  | Measured: ping/pong round trip 10–42 µs (median, QEMU + HVF) |
 | Scheduler wake    | As low and bounded as possible | Instrumented on `aarch64` dashboard |
 | Scheduler tick    | 1000 Hz | Active     |
 
@@ -14,7 +14,7 @@
 
 - **Input-to-photon** — time from a hardware input event (keystroke, mouse movement) to a visible change on the framebuffer. Covers the full path: driver IPC, task processing, and pixel write.
 - **Frame time** — compositor loop duration from frame start through display present.
-- **IPC latency** — time from send to receive for a single typed message on an unbuffered channel, measured between two ring 3 tasks.
+- **IPC latency** — time from send to receive for a single typed message on an unbuffered channel, measured between two EL0 tasks.
 - **Scheduler wake** — time from a blocked receiver becoming ready to that task actually running again.
 - **Scheduler tick** — timer interrupt frequency that drives preemptive scheduling. Currently set to 1000 Hz (1 ms quantum).
 

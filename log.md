@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-09-26
+
+Every service now runs at EL0 in its own address space, on QEMU with HVF. This replaces the shared-`TTBR0` EL0 path and the EL1 services described in the April entries below.
+
+- **The earlier blocker was wrong.** Under QEMU 11, HVF passes `tlbi` through and it really invalidates, so per-task page tables work on the Mac. QEMU 11 under HVF offers only a GICv3, which is why nothing ran after "Scheduler started" until the kernel gained a GICv3 driver.
+- **Isolation:** each task has its own top-level table and ASID, with W^X pages. The kernel copies user memory only through its own map of the physical frame, never through a user pointer. PAN is on where the CPU has it; the Pi 4's Cortex-A72 doesn't, so there the copy discipline is the only enforcement. FP/SIMD and `TPIDR_EL0` are saved per task.
+- **Supervision:** the kernel starts only `init`. `init` starts everything else, grants channel handles, and restarts services over IPC; a kernel registry records every spawn and exit, and MCP reads it.
+- **Latency:** direct hand-off took the ping/pong median round trip from about 10.8 ms to 10–42 µs.
+- **Tests:** 31 Python tests boot QEMU and assert on logs and MCP views (`./test.sh` in the `freshos` repo).
+
+Still to verify on a real Pi 4: the no-PAN path, I-cache maintenance, the GICv2 path, and the boot-time EL0 controls. Next: move the five EL1 built-ins (keyboard, compositor, shell, dashboard, MCP bridge) out to EL0, one spec each.
+
 ## 2026-04-14
 
 Brought the x86 target up on QEMU's q35 machine with `virtio-gpu-pci`, so the same desktop that runs on aarch64/HVF now also runs on x86 — the display path goes through virtio under the hood (via OVMF's GOP driver).

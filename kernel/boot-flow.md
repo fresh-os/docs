@@ -1,31 +1,27 @@
 # Boot Flow
 
-The boot sequence moves through five stages: UEFI handoff, CPU table setup, paging, kernel init, and the first context switch into ring 3.
+FreshOS boots as a UEFI application on aarch64 and ends with `init` running at EL0.
 
 ## Stages
 
-### 1. UEFI boot
+### 1. While UEFI is still running
 
-The UEFI firmware loads the kernel as a PE executable. The kernel retrieves the framebuffer, memory map, and ACPI tables before calling `ExitBootServices`.
+- Enable FP/SIMD (`CPACR_EL1`).
+- Pick the largest graphics mode up to 1920×1200 and keep its framebuffer.
+- Read every `*.ELF` in `\EFI\FreshOS\` into memory.
+- Take the memory map, then exit boot services.
 
-### 2. GDT and IDT
+### 2. Kernel bring-up
 
-A Global Descriptor Table is loaded with kernel and user code/data segments. The segment ordering matters: user segments must follow kernel segments in the specific order the `sysret` instruction expects. The IDT is populated with exception and interrupt handlers.
+- Install the exception vectors and bring up the GIC (v3 on QEMU, v2 on the Pi 4, chosen by the board layer).
+- Start the frame allocator from the memory map, then the kernel heap.
+- Set up paging: detect and enable PAN where the CPU has it, set the EL0-facing system registers to known values, and flush the TLB before any user address space exists.
+- Create the well-known IPC channels.
 
-### 3. Paging
+### 3. Start `init`
 
-Page tables use 2 MiB pages. The kernel identity-maps its own region and creates per-task page tables for user-mode address spaces.
+The kernel requires only `INIT.ELF`. Without it, it prints `INIT.ELF missing from \EFI\FreshOS — nothing to run` and halts. Otherwise it builds `init`'s address space, grants its handles, and starts the scheduler.
 
-### 4. Context switch to ring 3
+### 4. Scheduler
 
-- **CR3 swapping** — each task switch writes the target task's PML4 address into CR3.
-- **TSS.RSP0** — updated per-task so the CPU knows where to find the kernel stack on privilege transitions.
-- **Syscall/sysret path** — configured through three MSRs:
-  - `IA32_STAR` — segment selectors for syscall/sysret
-  - `IA32_LSTAR` — kernel entry point address
-  - `IA32_FMASK` — RFLAGS mask on syscall entry
-- Assembly stubs handle register save/restore around the transition.
-
-### 5. Scheduler
-
-Once the first user task launches, the scheduler runs at [100 Hz](performance.md) distributing time across tasks.
+A 1 ms virtual-timer tick drives preemption, and tasks also switch on the way out of a syscall (see [IPC](ipc.md)). `init` then starts every other service from its table.
